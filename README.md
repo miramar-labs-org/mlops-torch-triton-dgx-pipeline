@@ -15,15 +15,15 @@ GPU ML training pipeline: fine-tune DistilBERT for text classification on a DGX 
 ## Local Development
 
 ```bash
-# Create and activate a pyenv virtualenv for this workspace
-pyenv virtualenv 3.12.2 mlops-torch-triton
-pyenv local mlops-torch-triton
+# Create a pyenv virtualenv for this workspace (once)
+pyenv virtualenv 3.13.0 pyTriton
+pyenv local pyTriton
 
 # Install dependencies (CPU torch — enough for tests and linting)
 pip install -r ml/requirements.txt
 ```
 
-VS Code will use the `mlops-torch-triton` interpreter automatically via `.python-version`. Tests in `ml/test_train.py` show as **skipped** locally (no GPU/CUDA torch) and run fully in the training container on the DGX.
+VS Code will use the `pyTriton` interpreter automatically via `.python-version`. Tests in `ml/test_train.py` show as **skipped** locally (no GPU/CUDA torch) and run fully in the training container on the DGX.
 
 ## Pipeline
 
