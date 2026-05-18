@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: ml-serving
+  name: mlops-torch-triton-gke-pipeline
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: triton
-  namespace: ml-serving
+  namespace: mlops-torch-triton-gke-pipeline
 spec:
   replicas: 1
   selector:
@@ -57,7 +57,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: triton
-  namespace: ml-serving
+  namespace: mlops-torch-triton-gke-pipeline
 spec:
   type: ClusterIP
   selector:

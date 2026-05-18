@@ -22,7 +22,7 @@ env:
   APP_NAME: triton-text-classifier
   GKE_CLUSTER_NAME: miramar-shared-gke
   GKE_ZONE: us-west1-a
-  K8S_NAMESPACE: ml-serving
+  K8S_NAMESPACE: mlops-torch-triton-gke-pipeline
   DEPLOYMENT_NAME: triton
 
 jobs:

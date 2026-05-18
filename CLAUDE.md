@@ -18,7 +18,7 @@ ml/
   triton_config.pbtxt   # Triton model config: ONNX Runtime backend, input_ids + attention_mask → logits
   output/               # Generated at runtime — model.onnx (gitignored)
 k8s/
-  triton.yaml           # Namespace ml-serving, Deployment triton, ClusterIP Service
+  triton.yaml           # Namespace mlops-torch-triton-gke-pipeline, Deployment triton, ClusterIP Service
 ```
 
 ## Workflow
@@ -67,7 +67,7 @@ Training containers reach it via `host.docker.internal:5000` (Linux Docker bridg
 |---|---|
 | Project | `miramar-platform` |
 | Cluster | `miramar-shared-gke` (`us-west1-a`) |
-| Namespace | `ml-serving` |
+| Namespace | `mlops-torch-triton-gke-pipeline` |
 | Artifact Registry | `us-west1-docker.pkg.dev/miramar-platform/apps/triton-text-classifier` |
 | WIF Pool | `projects/423801268174/locations/global/workloadIdentityPools/github-actions/providers/github` (project: `miramar-cicd`) |
 | Auth | Workload Identity Federation — no long-lived keys |
@@ -95,7 +95,7 @@ The runner container mounts the host Docker socket — `--gpus all` in the train
 After deployment, test via port-forward:
 
 ```bash
-kubectl port-forward -n ml-serving svc/triton 8000:8000
+kubectl port-forward -n mlops-torch-triton-gke-pipeline svc/triton 8000:8000
 
 # Health
 curl localhost:8000/v2/health/ready

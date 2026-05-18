@@ -8,7 +8,7 @@ GPU ML training pipeline: fine-tune DistilBERT for text classification on a DGX 
 ## Links
 
 - **[GCP Artifact Registry](https://console.cloud.google.com/artifacts/docker/miramar-platform/us-west1/apps?project=miramar-platform)** — `us-west1-docker.pkg.dev/miramar-platform/apps/triton-text-classifier`
-- **[GKE Workloads](https://console.cloud.google.com/kubernetes/workload/overview?project=miramar-platform)** — `triton` deployment in namespace `ml-serving` on `miramar-shared-gke`
+- **[GKE Workloads](https://console.cloud.google.com/kubernetes/workload/overview?project=miramar-platform)** — `triton` deployment in namespace `mlops-torch-triton-gke-pipeline` on `miramar-shared-gke`
 - **[GitHub Actions](https://github.com/miramar-labs/mlops-torch-triton-gke-pipeline/actions)** — workflow run history
 
 ## Pipeline
@@ -24,7 +24,7 @@ ML Deploy — triggered by ML Train completion (msi-wsl2, x86_64)
   ├── download artifact → model.onnx
   ├── docker build → Triton serving image (model baked in)
   ├── push → GAR (latest + SHA tag)
-  └── kubectl apply → GKE namespace ml-serving
+  └── kubectl apply → GKE namespace mlops-torch-triton-gke-pipeline
 ```
 
 ## Workflows
@@ -101,7 +101,7 @@ Then open **http://localhost:5000** in your browser.
 |---|---|
 | Project | `miramar-platform` |
 | Cluster | `miramar-shared-gke` (`us-west1-a`) |
-| Namespace | `ml-serving` |
+| Namespace | `mlops-torch-triton-gke-pipeline` |
 | Artifact Registry | `us-west1-docker.pkg.dev/miramar-platform/apps/triton-text-classifier` |
 | Auth | Workload Identity Federation — no long-lived keys |
 
@@ -136,7 +136,7 @@ Two self-hosted runners are required. The runner image (`ghcr.io/miramar-labs/gi
 After deployment, access via port-forward:
 
 ```bash
-kubectl port-forward -n ml-serving svc/triton 8000:8000
+kubectl port-forward -n mlops-torch-triton-gke-pipeline svc/triton 8000:8000
 
 # Health check
 curl localhost:8000/v2/health/ready
