@@ -1,9 +1,15 @@
 import os
 import tempfile
-import types
 
 import pytest
-import torch
+
+try:
+    import torch
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
+
+pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="torch not available")
 
 
 # ---------------------------------------------------------------------------
