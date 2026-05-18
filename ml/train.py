@@ -17,10 +17,6 @@ MAX_LEN = 128
 MODEL_NAME = "distilbert-base-uncased"
 OUTPUT_DIR = "/output"
 
-mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000"))
-mlflow.set_experiment(os.environ.get("MLFLOW_EXPERIMENT_NAME", "text-classifier"))
-
-
 def tokenize_batch(batch, tokenizer):
     return tokenizer(
         batch["text"],
@@ -45,6 +41,9 @@ def evaluate(model, loader, device):
 
 
 def main():
+    mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000"))
+    mlflow.set_experiment(os.environ.get("MLFLOW_EXPERIMENT_NAME", "text-classifier"))
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
 
