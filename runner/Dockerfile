@@ -53,7 +53,7 @@ USER root
 RUN /home/runner/bin/installdependencies.sh
 
 USER runner
-COPY --chown=runner:runner start.sh ./
+COPY --chown=runner:runner runner/start.sh ./
 RUN chmod +x start.sh
 
 ENTRYPOINT ["./start.sh"]
