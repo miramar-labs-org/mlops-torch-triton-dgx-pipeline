@@ -1,41 +1,53 @@
-# mlops-pipeline
+# mlops-torch-triton-gke-pipeline
 
 GPU ML training pipeline: fine-tune DistilBERT for text classification on a DGX Station, track experiments with MLflow, serve the model on GKE via Triton Inference Server.
 
-[![ML Train](https://github.com/miramar-labs/mlops-pipeline/actions/workflows/ml-train.yaml/badge.svg)](https://github.com/miramar-labs/mlops-pipeline/actions/workflows/ml-train.yaml)
+[![ML Train](https://github.com/miramar-labs/mlops-torch-triton-gke-pipeline/actions/workflows/ml-train.yaml/badge.svg)](https://github.com/miramar-labs/mlops-torch-triton-gke-pipeline/actions/workflows/ml-train.yaml)
+[![ML Deploy](https://github.com/miramar-labs/mlops-torch-triton-gke-pipeline/actions/workflows/ml-deploy.yaml/badge.svg)](https://github.com/miramar-labs/mlops-torch-triton-gke-pipeline/actions/workflows/ml-deploy.yaml)
 
 ## Links
 
 - **[GCP Artifact Registry](https://console.cloud.google.com/artifacts/docker/miramar-platform/us-west1/apps?project=miramar-platform)** — `us-west1-docker.pkg.dev/miramar-platform/apps/triton-text-classifier`
 - **[GKE Workloads](https://console.cloud.google.com/kubernetes/workload/overview?project=miramar-platform)** — `triton` deployment in namespace `ml-serving` on `miramar-shared-gke`
-- **[GitHub Actions](https://github.com/miramar-labs/mlops-pipeline/actions)** — workflow run history
+- **[GitHub Actions](https://github.com/miramar-labs/mlops-torch-triton-gke-pipeline/actions)** — workflow run history
 
 ## Pipeline
 
 ```
-workflow_dispatch
-  └── train job (dgx-spark)
-        ├── docker run --gpus all → DistilBERT fine-tune on IMDB
-        ├── log metrics → MLflow (host.docker.internal:5000)
-        ├── export → model.onnx
-        ├── docker build → Triton serving image (model baked in)
-        └── push → GAR
-  └── deploy-triton job (needs: train)
-        └── kubectl apply → GKE namespace ml-serving
+ML Train — workflow_dispatch (dgx-spark, ARM64, GPU)
+  ├── docker run --gpus all → DistilBERT fine-tune on IMDB
+  ├── log metrics → MLflow (host.docker.internal:5000)
+  ├── export → model.onnx
+  └── upload artifact → onnx-model
+
+ML Deploy — triggered by ML Train completion (msi-wsl2, x86_64)
+  ├── download artifact → model.onnx
+  ├── docker build → Triton serving image (model baked in)
+  ├── push → GAR (latest + SHA tag)
+  └── kubectl apply → GKE namespace ml-serving
 ```
 
-## Workflow
+## Workflows
 
-| Workflow | File | Trigger | What it does |
+| Workflow | File | Runner | Trigger |
 |---|---|---|---|
-| **ML Train** | `ml-train.yaml` | manual | Fine-tunes DistilBERT on IMDB, logs to MLflow, exports ONNX, builds Triton image, deploys to GKE |
+| **ML Train** | `ml-train.yaml` | `dgx-spark` | Manual (`workflow_dispatch`) |
+| **ML Deploy** | `ml-deploy.yaml` | `msi-wsl2` | Auto on train success; or manual with `run_id` |
 
-**Inputs:**
+### ML Train inputs
 
 | Input | Default | Description |
 |---|---|---|
 | `epochs` | `3` | Number of training epochs |
 | `experiment` | `text-classifier` | MLflow experiment name |
+
+### ML Deploy inputs (manual only)
+
+| Input | Description |
+|---|---|
+| `run_id` | Training workflow run ID to deploy from |
+
+The model artifact (`onnx-model`) passes between workflows via GitHub Actions artifact storage. The deploy workflow uses the training run's commit SHA as the image tag, so `latest` and the SHA-tagged image in GAR always correspond to the same trained model.
 
 ## Model
 
@@ -93,25 +105,31 @@ Then open **http://localhost:5000** in your browser.
 | Artifact Registry | `us-west1-docker.pkg.dev/miramar-platform/apps/triton-text-classifier` |
 | Auth | Workload Identity Federation — no long-lived keys |
 
-## Runner
+## Runners
 
-The workflow runs on the DGX self-hosted runner (`dgx-spark`). The runner image (`ghcr.io/miramar-labs/github-runner:latest`) and launch scripts live in [github-actions-hello](https://github.com/miramar-labs/github-actions-hello). This repo includes a copy of `runner/` and `scripts/` for convenience.
+Two self-hosted runners are required. The runner image (`ghcr.io/miramar-labs/github-runner:latest`) and launch scripts live in [github-actions-hello](https://github.com/miramar-labs/github-actions-hello). This repo includes a copy of `runner/` for convenience.
 
-**Launch the runner for this repo** (get a fresh token from Settings → Actions → Runners → New self-hosted runner):
+| Runner | Label | Host | Used for |
+|---|---|---|---|
+| DGX Station | `dgx-spark` | `spark-79b7.local` (ARM64) | GPU training |
+| MSI WSL2 | `msi-wsl2` | MSI desktop (x86_64) | Triton image build + GKE deploy |
+
+**Launch a runner** (get a fresh token from Settings → Actions → Runners → New self-hosted runner):
 ```bash
-./runner/launch.sh TOKEN https://github.com/miramar-labs/mlops-pipeline
+./runner/launch.sh TOKEN https://github.com/miramar-labs/mlops-torch-triton-gke-pipeline
 ```
 
-`launch.sh` auto-detects architecture, pulls the latest image, and registers against the supplied repo URL.
+`launch.sh` auto-detects architecture (`aarch64` → `dgx-spark`, `x86_64` → `msi-wsl2`), pulls the latest image, and registers against the supplied repo URL.
 
-## GitHub Secrets and Variables Required
+## GitHub Secrets and Variables
 
-| Secret/Variable | Type | Description |
+| Name | Type | Description |
 |---|---|---|
-| `WIF_PROVIDER` | Secret | Workload Identity Federation provider |
+| `WIF_PROVIDER` | Secret | Workload Identity Federation provider resource name |
 | `GCP_SERVICE_ACCOUNT` | Secret | GCP service account email for WIF |
-| `MLFLOW_TRACKING_URI` | Variable | MLflow tracking URI (e.g. `http://host.docker.internal:5000`) |
-| `RUNNER_LABELS` | Variable | Runner label (default: `dgx-spark`) |
+| `MLFLOW_TRACKING_URI` | Variable | `http://host.docker.internal:5000` |
+| `RUNNER_LABELS_DGX` | Variable | `dgx-spark` |
+| `RUNNER_LABELS_MSI` | Variable | `msi-wsl2` |
 
 ## Triton Inference
 
@@ -134,19 +152,24 @@ curl -X POST localhost:8000/v2/models/text_classifier/infer \
   }'
 ```
 
+Logits: index 0 = negative, index 1 = positive. Apply softmax for probabilities.
+
 Triton also exposes gRPC on port 8001 and Prometheus metrics on port 8002.
 
 ## Repository Structure
 
 ```
 .github/workflows/
-  ml-train.yaml         # Training + deploy workflow
+  ml-train.yaml         # GPU training on DGX — exports model.onnx as artifact
+  ml-deploy.yaml        # Triton image build + GKE deploy on MSI-WSL2
 ml/
   train.py              # DistilBERT fine-tune + ONNX export + MLflow logging
   Dockerfile.train      # GPU training image (pytorch/pytorch:2.3.0-cuda12.1)
-  Dockerfile.serve      # Triton serving image (model baked in)
+  Dockerfile.serve      # Triton serving image (model.onnx baked in at build time)
   triton_config.pbtxt   # Triton model config (ONNX Runtime backend)
   output/               # Generated at runtime — model.onnx (gitignored)
 k8s/
   triton.yaml           # Namespace + Deployment + Service for Triton on GKE
+runner/
+  launch.sh             # Start the self-hosted runner container
 ```
