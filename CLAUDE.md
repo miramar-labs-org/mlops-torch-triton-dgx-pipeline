@@ -10,7 +10,8 @@ An MLOps pipeline that fine-tunes DistilBERT for text classification (IMDB senti
 
 ```
 .github/workflows/
-  ml-train.yaml         # Main workflow: train → export ONNX → build Triton image → deploy to GKE
+  ml-train.yaml         # Train → export ONNX → build Triton image → push to GAR
+  ml-deploy.yaml        # Deploy Triton serving image to GKE
 ml/
   train.py              # DistilBERT fine-tune on IMDB, MLflow logging, ONNX export
   Dockerfile.train      # GPU training image (pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime)
@@ -83,12 +84,7 @@ Training containers reach it via `host.docker.internal:5000` (Linux Docker bridg
 
 ## Runner
 
-The DGX runner must be:
-1. Registered for this repo with label `dgx-spark`
-2. Running as a Docker container using `ghcr.io/miramar-labs-org/github-runner-mlops-torch-triton-gke-pipeline:latest`
-3. Started via `./runner/launch.sh TOKEN` from the [github-actions-hello](https://github.com/miramar-labs-org/github-actions-hello) repo
-
-The runner container mounts the host Docker socket — `--gpus all` in the training step works because the Docker daemon on the DGX host has GPU access.
+The DGX runner is managed in the platform repo ([github-actions-hello](https://github.com/miramar-labs-org/github-actions-hello)). It must be registered for this repo with label `dgx-spark`. The runner container mounts the host Docker socket — `--gpus all` in the training step works because the Docker daemon on the DGX host has GPU access.
 
 ## Triton Inference
 
@@ -113,6 +109,6 @@ curl -X POST localhost:8000/v2/models/text_classifier/infer \
 
 Logits output: index 0 = negative, index 1 = positive. Apply softmax for probabilities.
 
-## Sibling Repo
+## Platform Repo
 
-[github-actions-hello](https://github.com/miramar-labs-org/github-actions-hello) at `/home/aaron/git-miramar-labs-org/github-actions-hello` contains the runner image (`ghcr.io/miramar-labs-org/github-runner-mlops-torch-triton-gke-pipeline`), runner launch scripts, and the textlyze app pipeline. This repo was created from that project.
+[github-actions-hello](https://github.com/miramar-labs-org/github-actions-hello) at `/home/aaron/git-miramar-labs-org/github-actions-hello` is the platform repo that manages the DGX runner image and launch scripts. This repo was created from that project.
