@@ -20,7 +20,7 @@ def _make_model():
     from transformers import DistilBertForSequenceClassification, DistilBertConfig
     config = DistilBertConfig(
         vocab_size=100,
-        max_position_embeddings=32,
+        max_position_embeddings=128,
         n_layers=1,
         n_heads=2,
         dim=16,
@@ -136,10 +136,15 @@ def test_evaluate_model_set_to_eval_mode():
 def test_onnx_export_creates_file():
     from train import MAX_LEN
 
-    model = _make_model()
-    device = torch.device("cpu")
-    model.to(device).eval()
+    class _StubModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = torch.nn.Linear(MAX_LEN, 2)
 
+        def forward(self, input_ids, attention_mask):
+            return self.linear(input_ids.float() * attention_mask.float())
+
+    model = _StubModel().eval()
     dummy_ids  = torch.ones(1, MAX_LEN, dtype=torch.long)
     dummy_mask = torch.ones(1, MAX_LEN, dtype=torch.long)
 

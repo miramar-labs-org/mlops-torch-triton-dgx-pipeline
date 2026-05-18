@@ -7,6 +7,7 @@ transformers
 datasets
 mlflow
 onnx
+onnxscript
 dill
 
 # Testing
