@@ -75,9 +75,14 @@ Access the UI at `http://localhost:5000` (or via SSH port-forward from another m
 
 ## Runner
 
-The workflow runs on the DGX self-hosted runner. Set the `RUNNER_LABELS` repository variable to the runner label (default: `dgx-spark`).
+The workflow runs on the DGX self-hosted runner (`dgx-spark`). The runner image (`ghcr.io/miramar-labs/github-runner:latest`) and launch scripts live in [github-actions-hello](https://github.com/miramar-labs/github-actions-hello). This repo includes a copy of `runner/` and `scripts/` for convenience.
 
-The runner must be registered with the `dgx-spark` label. See [github-actions-hello](https://github.com/miramar-labs/github-actions-hello) for runner image and setup.
+**Launch the runner for this repo** (get a fresh token from Settings → Actions → Runners → New self-hosted runner):
+```bash
+./runner/launch.sh TOKEN https://github.com/miramar-labs/mlops-pipeline
+```
+
+`launch.sh` auto-detects architecture, pulls the latest image, and registers against the supplied repo URL.
 
 ## GitHub Secrets and Variables Required
 
