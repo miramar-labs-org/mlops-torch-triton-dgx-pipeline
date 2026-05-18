@@ -1,0 +1,20 @@
+name: ML Train Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: [self-hosted, dgx]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build training image
+        run: docker build -f ml/Dockerfile.train -t ml-trainer:latest .
+
+      - name: Run tests
+        run: docker run --rm ml-trainer:latest python -m pytest test_train.py -v

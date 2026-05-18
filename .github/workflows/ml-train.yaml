@@ -1,6 +1,9 @@
 name: ML Train
 
 on:
+  workflow_run:
+    workflows: ["ML Train Test"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       epochs:
@@ -17,6 +20,7 @@ permissions:
 
 jobs:
   train:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     runs-on: [self-hosted, dgx]
 
     steps:
@@ -24,9 +28,6 @@ jobs:
 
       - name: Build training image
         run: docker build -f ml/Dockerfile.train -t ml-trainer:latest .
-
-      - name: Test
-        run: docker run --rm ml-trainer:latest python -m pytest test_train.py -v
 
       - name: Train model
         run: |
