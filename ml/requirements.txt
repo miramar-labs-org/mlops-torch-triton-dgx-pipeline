@@ -1,0 +1,13 @@
+# ML training deps (container uses NGC pytorch:25.03-py3 which includes torch + CUDA)
+# For local CPU-only dev: pip install -r requirements.txt
+# For GPU: follow https://pytorch.org/get-started/locally/ to install torch with CUDA first
+
+torch
+transformers
+datasets
+mlflow
+onnx
+dill
+
+# Testing
+pytest
