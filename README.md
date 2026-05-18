@@ -11,6 +11,7 @@ GPU ML training pipeline: fine-tune DistilBERT for text classification on a DGX 
 - **[GCP Artifact Registry](https://console.cloud.google.com/artifacts/docker/miramar-platform/us-west1/apps?project=miramar-platform)** — `us-west1-docker.pkg.dev/miramar-platform/apps/triton-text-classifier`
 - **[GKE Workloads](https://console.cloud.google.com/kubernetes/workload/overview?project=miramar-platform)** — `triton` deployment in namespace `mlops-torch-triton-gke-pipeline` on `miramar-shared-gke`
 - **[GitHub Actions](https://github.com/miramar-labs-org/mlops-torch-triton-gke-pipeline/actions)** — workflow run history
+- **[MLflow UI](http://spark-79b7.local:5000)** — experiment tracking on DGX (`ssh -L 5000:localhost:5000 aaron@spark-79b7.local` if not on local network)
 
 ## Local Development
 
