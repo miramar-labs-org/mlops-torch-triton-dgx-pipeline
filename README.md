@@ -11,6 +11,19 @@ GPU ML training pipeline: fine-tune DistilBERT for text classification on a DGX 
 - **[GKE Workloads](https://console.cloud.google.com/kubernetes/workload/overview?project=miramar-platform)** — `triton` deployment in namespace `mlops-torch-triton-gke-pipeline` on `miramar-shared-gke`
 - **[GitHub Actions](https://github.com/miramar-labs-org/mlops-torch-triton-gke-pipeline/actions)** — workflow run history
 
+## Local Development
+
+```bash
+# Create and activate a pyenv virtualenv for this workspace
+pyenv virtualenv 3.12.2 mlops-torch-triton
+pyenv local mlops-torch-triton
+
+# Install dependencies (CPU torch — enough for tests and linting)
+pip install -r ml/requirements.txt
+```
+
+VS Code will use the `mlops-torch-triton` interpreter automatically via `.python-version`. Tests in `ml/test_train.py` show as **skipped** locally (no GPU/CUDA torch) and run fully in the training container on the DGX.
+
 ## Pipeline
 
 ```
@@ -107,19 +120,12 @@ Then open **http://localhost:5000** in your browser.
 
 ## Runners
 
-Two self-hosted runners are required. The runner image (`ghcr.io/miramar-labs-org/github-runner-mlops-torch-triton-gke-pipeline:latest`) and launch scripts live in [github-actions-hello](https://github.com/miramar-labs-org/github-actions-hello). This repo includes a copy of `runner/` for convenience.
+Two self-hosted runners are required. The runner image and launch scripts live in [github-actions-hello](https://github.com/miramar-labs-org/github-actions-hello).
 
 | Runner | Label | Host | Used for |
 |---|---|---|---|
-| DGX Station | `dgx-spark` | `spark-79b7.local` (ARM64) | GPU training |
-| MSI WSL2 | `msi-wsl2` | MSI desktop (x86_64) | Triton image build + GKE deploy |
-
-**Launch a runner** (get a fresh token from Settings → Actions → Runners → New self-hosted runner):
-```bash
-./runner/launch.sh TOKEN https://github.com/miramar-labs-org/mlops-torch-triton-gke-pipeline
-```
-
-`launch.sh` auto-detects architecture (`aarch64` → `dgx-spark`, `x86_64` → `msi-wsl2`), pulls the latest image, and registers against the supplied repo URL.
+| DGX Station | `dgx` | `spark-79b7.local` (ARM64) | GPU training |
+| MSI WSL2 | `wsl2` | MSI desktop (x86_64) | Triton image build + GKE deploy |
 
 ## GitHub Secrets and Variables
 
@@ -164,12 +170,11 @@ Triton also exposes gRPC on port 8001 and Prometheus metrics on port 8002.
   ml-deploy.yaml        # Triton image build + GKE deploy on MSI-WSL2
 ml/
   train.py              # DistilBERT fine-tune + ONNX export + MLflow logging
-  Dockerfile.train      # GPU training image (pytorch/pytorch:2.3.0-cuda12.1)
+  Dockerfile.train      # GPU training image (nvcr.io/nvidia/pytorch:25.03-py3)
   Dockerfile.serve      # Triton serving image (model.onnx baked in at build time)
   triton_config.pbtxt   # Triton model config (ONNX Runtime backend)
   output/               # Generated at runtime — model.onnx (gitignored)
 k8s/
   triton.yaml           # Namespace + Deployment + Service for Triton on GKE
-runner/
-  launch.sh             # Start the self-hosted runner container
+  requirements.txt      # Local dev dependencies (CPU torch + pytest)
 ```
