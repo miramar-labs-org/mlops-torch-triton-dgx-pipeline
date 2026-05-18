@@ -1,0 +1,10 @@
+FROM nvcr.io/nvidia/tritonserver:24.01-py3
+
+# Model repository layout expected by Triton:
+#   /models/text_classifier/config.pbtxt
+#   /models/text_classifier/1/model.onnx
+
+COPY ml/output/model.onnx       /models/text_classifier/1/model.onnx
+COPY ml/triton_config.pbtxt     /models/text_classifier/config.pbtxt
+
+CMD ["tritonserver", "--model-repository=/models"]
