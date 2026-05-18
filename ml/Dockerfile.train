@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime
+FROM nvcr.io/nvidia/pytorch:24.05-py3
 
 RUN pip install --no-cache-dir \
     transformers==4.40.0 \
