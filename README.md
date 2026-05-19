@@ -102,7 +102,7 @@ Both training and test containers mount `$HOME/.cache/huggingface` from the DGX 
 |---|---|---|---|
 | `WIF_PROVIDER` | org | Secret | Workload Identity Federation provider resource name |
 | `GCP_SERVICE_ACCOUNT` | org | Secret | GCP service account email for WIF |
-| `MLFLOW_TRACKING_URI` | org | Variable | `http://host.docker.internal:5000` |
+| `MLFLOW_TRACKING_URI` | repo | Variable | `http://host.docker.internal:5000` (org-level var is PRIVATE — not visible to public repos) |
 | `REPO_NAME` | repo | Variable | Repository slug used as the K8s namespace |
 
 ## Triton Inference
