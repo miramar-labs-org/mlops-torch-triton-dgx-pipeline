@@ -24,7 +24,7 @@ jobs:
     runs-on: [self-hosted, dgx]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build training image
         run: docker build -f ml/Dockerfile.train -t ml-trainer:latest .

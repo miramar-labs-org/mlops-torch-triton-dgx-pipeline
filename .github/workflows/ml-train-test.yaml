@@ -17,7 +17,7 @@ jobs:
     runs-on: [self-hosted, dgx]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Run tests
         run: python3 -m pytest ml/test_train.py -v

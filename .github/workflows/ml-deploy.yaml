@@ -29,7 +29,7 @@ jobs:
       url: https://console.cloud.google.com/kubernetes/workload/overview?project=miramar-platform
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Resolve run ID and image tag
         run: |
