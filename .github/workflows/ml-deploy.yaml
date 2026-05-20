@@ -70,9 +70,14 @@ jobs:
       - name: Configure Docker for GAR
         run: gcloud auth configure-docker "${GAR_LOCATION}-docker.pkg.dev" --quiet
 
+      - name: Pull cache for serving image
+        run: |
+          docker pull "${GAR_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/${APP_NAME}:latest" || true
+
       - name: Build Triton serving image
         run: |
           docker build -f ml/Dockerfile.serve \
+            --cache-from "${GAR_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/${APP_NAME}:latest" \
             -t "${GAR_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/${APP_NAME}:latest" \
             -t "${GAR_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/${APP_NAME}:${IMAGE_TAG}" \
             .
