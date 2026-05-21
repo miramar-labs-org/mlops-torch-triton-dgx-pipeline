@@ -12,26 +12,17 @@ on:
 
 permissions:
   contents: read
-  id-token: write
   actions: read
 
 env:
-  GCP_PROJECT_ID: miramar-platform
-  GAR_LOCATION: us-west1
-  GAR_REPOSITORY: apps
   APP_NAME: triton-text-classifier
-  GKE_CLUSTER_NAME: miramar-shared-gke
-  GKE_ZONE: us-west1-a
-  K8S_NAMESPACE: ${{ vars.REPO_NAME }}
+  K8S_NAMESPACE: ${{ github.event.repository.name }}
   DEPLOYMENT_NAME: triton
 
 jobs:
   build-and-deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
-    runs-on: [self-hosted, wsl2]
-    environment:
-      name: gke-ml
-      url: https://console.cloud.google.com/kubernetes/workload/overview?project=miramar-platform
+    runs-on: [self-hosted, dgx]
 
     steps:
       - uses: actions/checkout@v5
@@ -49,6 +40,7 @@ jobs:
           fi
           echo "RUN_ID=${RUN_ID}" >> "$GITHUB_ENV"
           echo "IMAGE_TAG=${SHA}" >> "$GITHUB_ENV"
+          echo "DOCKERHUB_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/${APP_NAME}" >> "$GITHUB_ENV"
 
       - name: Download ONNX model
         uses: actions/download-artifact@v4
@@ -58,61 +50,45 @@ jobs:
           run-id: ${{ env.RUN_ID }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-
-      - name: Set up gcloud
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Configure Docker for GAR
-        run: gcloud auth configure-docker "${GAR_LOCATION}-docker.pkg.dev" --quiet
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Pull cache for serving image
-        run: |
-          docker pull "${GAR_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/${APP_NAME}:latest" || true
+        run: docker pull "${DOCKERHUB_IMAGE}:latest" || true
 
       - name: Build Triton serving image
         run: |
           docker build -f ml/Dockerfile.serve \
-            --cache-from "${GAR_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/${APP_NAME}:latest" \
-            -t "${GAR_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/${APP_NAME}:latest" \
-            -t "${GAR_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/${APP_NAME}:${IMAGE_TAG}" \
+            --cache-from "${DOCKERHUB_IMAGE}:latest" \
+            -t "${DOCKERHUB_IMAGE}:${IMAGE_TAG}" \
+            -t "${DOCKERHUB_IMAGE}:latest" \
             .
 
-      - name: Push to GAR
+      - name: Push to Docker Hub
         run: |
-          docker push "${GAR_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/${APP_NAME}:latest"
-          docker push "${GAR_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/${APP_NAME}:${IMAGE_TAG}"
-
-      - name: Get GKE credentials
-        uses: google-github-actions/get-gke-credentials@v2
-        with:
-          cluster_name: ${{ env.GKE_CLUSTER_NAME }}
-          location: ${{ env.GKE_ZONE }}
-          project_id: ${{ env.GCP_PROJECT_ID }}
+          docker push "${DOCKERHUB_IMAGE}:${IMAGE_TAG}"
+          docker push "${DOCKERHUB_IMAGE}:latest"
 
       - name: Deploy Triton
         run: |
-          IMAGE="${GAR_LOCATION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/${APP_NAME}:${IMAGE_TAG}"
-          sed "s|IMAGE_PLACEHOLDER|${IMAGE}|g" k8s/triton.yaml \
-            | python3 -c "import sys; docs=sys.stdin.read().split('\n---\n'); print('\n---\n'.join(d for d in docs if 'kind: Namespace' not in d))" \
-            | kubectl apply -f -
+          sed "s|IMAGE_PLACEHOLDER|${DOCKERHUB_IMAGE}:${IMAGE_TAG}|g" k8s/triton.yaml \
+            | kubectl --context minikube apply -f -
 
       - name: Wait for rollout
         run: |
-          kubectl rollout status deployment/"$DEPLOYMENT_NAME" \
+          kubectl --context minikube rollout status deployment/"$DEPLOYMENT_NAME" \
             -n "$K8S_NAMESPACE" \
             --timeout=300s
 
       - name: Show deployed resources
         if: always()
-        run: kubectl -n "$K8S_NAMESPACE" get deploy,pods,svc -o wide
+        run: kubectl --context minikube -n "$K8S_NAMESPACE" get deploy,pods,svc -o wide
 
       - name: Describe deployment on failure
         if: failure()
         run: |
-          kubectl -n "$K8S_NAMESPACE" describe deployment "$DEPLOYMENT_NAME"
-          kubectl -n "$K8S_NAMESPACE" describe pods -l app="$DEPLOYMENT_NAME"
+          kubectl --context minikube -n "$K8S_NAMESPACE" describe deployment "$DEPLOYMENT_NAME"
+          kubectl --context minikube -n "$K8S_NAMESPACE" describe pods -l app="$DEPLOYMENT_NAME"

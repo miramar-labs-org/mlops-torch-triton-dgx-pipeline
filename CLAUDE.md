@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working in this repository.
 
 ## Overview
 
-An MLOps pipeline that fine-tunes DistilBERT for text classification (IMDB sentiment), tracks experiments with MLflow, and serves the model on GKE via NVIDIA Triton Inference Server. Training runs on a DGX Station self-hosted GitHub Actions runner with GPU access.
+An MLOps pipeline that fine-tunes DistilBERT for text classification (IMDB sentiment), tracks experiments with MLflow, and serves the model on minikube via NVIDIA Triton Inference Server. Training and deployment both run on a DGX Station self-hosted GitHub Actions runner with GPU access.
 
 ## Repository Structure
 
@@ -12,7 +12,7 @@ An MLOps pipeline that fine-tunes DistilBERT for text classification (IMDB senti
 .github/workflows/
   ml-train-test.yaml    # Build training image and run pytest (entry point)
   ml-train.yaml         # GPU training on DGX — exports model.onnx as GitHub artifact
-  ml-deploy.yaml        # Build Triton serving image, push to GAR, deploy to GKE
+  ml-deploy.yaml        # Build Triton serving image, push to Docker Hub, deploy to minikube
 ml/
   train.py              # DistilBERT fine-tune on IMDB, MLflow logging, ONNX export
   test_train.py         # Unit tests for tokenize_batch, evaluate, ONNX export
@@ -22,7 +22,7 @@ ml/
   triton_config.pbtxt   # Triton model config: ONNX Runtime backend, input_ids + attention_mask → logits
   output/               # Generated at runtime — model.onnx (gitignored)
 k8s/
-  triton.yaml           # Namespace mlops-torch-triton-gke-pipeline, Deployment triton, ClusterIP Service
+  triton.yaml           # Namespace mlops-torch-triton-dgx-pipeline, Deployment triton, ClusterIP Service
 ```
 
 ## Workflow
@@ -40,11 +40,11 @@ ML Train — triggered by ML Train Test success; or workflow_dispatch (runner: d
   ├── export model.onnx via named Docker volume → runner filesystem
   └── upload onnx-model artifact (30-day retention)
 
-ML Deploy — triggered by ML Train success (runner: wsl2, x86_64)
+ML Deploy — triggered by ML Train success (runner: dgx, ARM64)
   ├── download onnx-model artifact
   ├── docker build Triton serving image (model.onnx baked in)
-  ├── push to GAR (:latest + commit SHA tag)
-  └── kubectl apply → GKE, rollout wait 300s
+  ├── push to Docker Hub (:latest + commit SHA tag)
+  └── kubectl apply → minikube, rollout wait 300s
 ```
 
 **ML Train manual dispatch inputs:**
@@ -75,30 +75,29 @@ ssh -L 5000:localhost:5000 aaron@spark-79b7.local
 # then browse http://localhost:5000
 ```
 
-## GCP / GKE
+## minikube
+
+The DGX host runs a minikube cluster with the dashboard enabled. All `kubectl` commands in the deploy workflow use `--context minikube` explicitly.
 
 | Resource | Value |
 |---|---|
-| Project | `miramar-platform` |
-| Cluster | `miramar-shared-gke` (`us-west1-a`) |
-| Namespace | `mlops-torch-triton-gke-pipeline` |
-| Artifact Registry | `us-west1-docker.pkg.dev/miramar-platform/apps/triton-text-classifier` |
-| Auth | Workload Identity Federation — no long-lived keys (pool in project `miramar-cicd`) |
+| Cluster | minikube on `spark-79b7.local` |
+| Namespace | `mlops-torch-triton-dgx-pipeline` |
+| Dashboard | `minikube dashboard` or `minikube dashboard --url` |
+| Image registry | Docker Hub |
 
 ## GitHub Secrets and Variables
 
 | Name | Scope | Type | Description |
 |---|---|---|---|
-| `WIF_PROVIDER` | org | Secret | WIF provider resource name (see GCP above) |
-| `GCP_SERVICE_ACCOUNT` | org | Secret | GCP service account email for WIF |
-| `REPO_NAME` | repo | Variable | Repository slug used as the K8s namespace |
+| `DOCKERHUB_USERNAME` | org | Secret | Docker Hub username for pushing the Triton serving image |
+| `DOCKERHUB_TOKEN` | org | Secret | Docker Hub access token |
 
 ## Runners
 
 | Runner | Label | Host | Used for |
 |---|---|---|---|
-| NVIDIA DGX Spark 128GB | `dgx` | `spark-79b7.local` (ARM64, Blackwell GPU) | GPU training and tests |
-| MSI WSL2 | `wsl2` | MSI desktop (x86_64) | Triton image build + GKE deploy |
+| NVIDIA DGX Spark 128GB | `dgx` | `spark-79b7.local` (ARM64, Blackwell GPU) | GPU training, tests, and Triton deploy |
 
 Runners are managed in [miramar-platform-gcp](https://github.com/miramar-labs-org/miramar-platform-gcp) (`mlabs-runner/` for the Docker image, `scripts/gha/launch-runner.sh` to register). The DGX runner mounts the host Docker socket — `--gpus all` works because the Docker daemon on the DGX host has GPU access. Both containers mount `$HOME/.cache/huggingface` from the DGX host so model weights and the IMDB dataset are downloaded once and reused.
 
@@ -107,7 +106,7 @@ Runners are managed in [miramar-platform-gcp](https://github.com/miramar-labs-or
 After deployment, test via port-forward:
 
 ```bash
-kubectl port-forward -n mlops-torch-triton-gke-pipeline svc/triton 8000:8000
+kubectl --context minikube port-forward -n mlops-torch-triton-dgx-pipeline svc/triton 8000:8000
 
 # Health
 curl localhost:8000/v2/health/ready
@@ -127,10 +126,6 @@ Logits output: index 0 = negative, index 1 = positive. Apply softmax for probabi
 
 ## Deploy Notes
 
-- The deploy step strips `kind: Namespace` documents from `k8s/triton.yaml` before applying, so re-deploys don't conflict with an existing namespace.
-- The Triton serving image has no `nvidia.com/gpu` resource request in `k8s/triton.yaml` — it runs CPU-only on GKE unless the node pool adds GPU resources separately.
-- Image tags: both `:latest` and the commit SHA are pushed; the SHA tag ensures the deployed image always matches the trained model from that exact run.
-
-## Platform Repo
-
-[miramar-platform-gcp](https://github.com/miramar-labs-org/miramar-platform-gcp) at `/home/aaron/git-miramar-labs-org/miramar-platform-gcp` provisions GCP infrastructure (GKE, AR, WIF) and manages the `mlabs-runner` Docker image and launch scripts for the DGX and WSL2 runners. It also hosts the **GKE Cluster Expand** and **GKE Cluster Restore** workflows for temporarily scaling the node pool when testing a Triton deploy.
+- `kubectl apply` includes the `kind: Namespace` document — minikube handles re-applying an existing namespace cleanly.
+- The Triton serving image has no `nvidia.com/gpu` resource request in `k8s/triton.yaml` — it runs CPU-only unless a GPU device plugin is configured in minikube.
+- Image tags: both `:latest` and the commit SHA are pushed to Docker Hub; the SHA tag ensures the deployed image always matches the trained model from that exact run.

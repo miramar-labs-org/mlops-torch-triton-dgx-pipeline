@@ -1,17 +1,16 @@
-# mlops-torch-triton-gke-pipeline
+# mlops-torch-triton-dgx-pipeline
 
-GPU ML training pipeline: fine-tune DistilBERT for text classification on a DGX Station, track experiments with MLflow, serve the model on GKE via Triton Inference Server.
+GPU ML training pipeline: fine-tune DistilBERT for text classification on a DGX Station, track experiments with MLflow, serve the model on minikube via Triton Inference Server.
 
-[![ML Train Test](https://github.com/miramar-labs-org/mlops-torch-triton-gke-pipeline/actions/workflows/ml-train-test.yaml/badge.svg)](https://github.com/miramar-labs-org/mlops-torch-triton-gke-pipeline/actions/workflows/ml-train-test.yaml)
-[![ML Train](https://github.com/miramar-labs-org/mlops-torch-triton-gke-pipeline/actions/workflows/ml-train.yaml/badge.svg)](https://github.com/miramar-labs-org/mlops-torch-triton-gke-pipeline/actions/workflows/ml-train.yaml)
-[![ML Deploy](https://github.com/miramar-labs-org/mlops-torch-triton-gke-pipeline/actions/workflows/ml-deploy.yaml/badge.svg)](https://github.com/miramar-labs-org/mlops-torch-triton-gke-pipeline/actions/workflows/ml-deploy.yaml)
+[![ML Train Test](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions/workflows/ml-train-test.yaml/badge.svg)](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions/workflows/ml-train-test.yaml)
+[![ML Train](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions/workflows/ml-train.yaml/badge.svg)](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions/workflows/ml-train.yaml)
+[![ML Deploy](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions/workflows/ml-deploy.yaml/badge.svg)](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions/workflows/ml-deploy.yaml)
 
 ## Links
 
-- **[GCP Artifact Registry](https://console.cloud.google.com/artifacts/docker/miramar-platform/us-west1/apps?project=miramar-platform)** — `us-west1-docker.pkg.dev/miramar-platform/apps/triton-text-classifier`
-- **[GKE Workloads](https://console.cloud.google.com/kubernetes/workload/overview?project=miramar-platform)** — `triton` deployment in namespace `mlops-torch-triton-gke-pipeline` on `miramar-shared-gke`
-- **[GitHub Actions](https://github.com/miramar-labs-org/mlops-torch-triton-gke-pipeline/actions)** — workflow run history
+- **[GitHub Actions](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions)** — workflow run history
 - **[MLflow UI](http://localhost:5000)** — experiment tracking on DGX; requires SSH tunnel: `ssh -L 5000:localhost:5000 aaron@spark-79b7.local`
+- **minikube Dashboard** — `minikube dashboard` on the DGX (SSH tunnel to forward the port shown)
 
 ## Local Development
 
@@ -40,11 +39,11 @@ ML Train — triggered by ML Train Test success (dgx, ARM64, GPU)
   ├── export → model.onnx
   └── upload artifact → onnx-model
 
-ML Deploy — triggered by ML Train success (wsl2, x86_64)
+ML Deploy — triggered by ML Train success (dgx, ARM64)
   ├── download artifact → model.onnx
   ├── docker build → Triton serving image (model baked in)
-  ├── push → GAR (latest + SHA tag)
-  └── kubectl apply → GKE namespace mlops-torch-triton-gke-pipeline
+  ├── push → Docker Hub (latest + SHA tag)
+  └── kubectl apply → minikube namespace mlops-torch-triton-dgx-pipeline
 ```
 
 ## Workflows
@@ -53,19 +52,7 @@ ML Deploy — triggered by ML Train success (wsl2, x86_64)
 |---|---|---|---|
 | **ML Train Test** | `ml-train-test.yaml` | `dgx` | Push to `ml/train.py`, `test_train.py`, or `Dockerfile.train`; or manual |
 | **ML Train** | `ml-train.yaml` | `dgx` | Auto on ML Train Test success; or manual |
-| **ML Deploy** | `ml-deploy.yaml` | `wsl2` | Auto on ML Train success; or manual with `run_id` |
-| **GKE Cluster Expand** | [`miramar-platform-gcp`](https://github.com/miramar-labs-org/miramar-platform-gcp/actions/workflows/gke-cluster-expand.yaml) | `wsl2` | Manual only |
-| **GKE Cluster Restore** | [`miramar-platform-gcp`](https://github.com/miramar-labs-org/miramar-platform-gcp/actions/workflows/gke-cluster-restore.yaml) | `wsl2` | Manual only |
-
-> GKE Cluster Expand and Restore live in [miramar-platform-gcp](https://github.com/miramar-labs-org/miramar-platform-gcp), not this repo.
-
-### Testing Triton when the cluster has insufficient resources
-
-Run these three workflows in sequence to temporarily scale up the cluster, deploy, and restore:
-
-1. **GKE Cluster Expand** — saves current node pool state (count + machine type) to GCS, then resizes the pool up
-2. **ML Deploy** — trigger manually to build and deploy the Triton serving image
-3. **GKE Cluster Restore** — reads the saved state from GCS and restores the pool automatically (optional `node_count_override` if needed)
+| **ML Deploy** | `ml-deploy.yaml` | `dgx` | Auto on ML Train success; or manual with `run_id` |
 
 ### ML Train inputs (manual dispatch only)
 
@@ -74,7 +61,7 @@ Run these three workflows in sequence to temporarily scale up the cluster, deplo
 | `epochs` | `3` | Number of training epochs |
 | `experiment` | `text-classifier` | MLflow experiment name |
 
-The model artifact (`onnx-model`) passes between workflows via GitHub Actions artifact storage. The deploy workflow uses the training run's commit SHA as the image tag, so `latest` and the SHA-tagged image in GAR always correspond to the same trained model.
+The model artifact (`onnx-model`) passes between workflows via GitHub Actions artifact storage. The deploy workflow uses the training run's commit SHA as the image tag, so `latest` and the SHA-tagged image on Docker Hub always correspond to the same trained model.
 
 ## Model
 
@@ -87,43 +74,31 @@ The model artifact (`onnx-model`) passes between workflows via GitHub Actions ar
 | Export format | ONNX (opset 14) |
 | Inference backend | Triton ONNX Runtime |
 
-## GCP / GKE
-
-| Resource | Value |
-|---|---|
-| Project | `miramar-platform` |
-| Cluster | `miramar-shared-gke` (`us-west1-a`) |
-| Namespace | `mlops-torch-triton-gke-pipeline` |
-| Artifact Registry | `us-west1-docker.pkg.dev/miramar-platform/apps/triton-text-classifier` |
-| Auth | Workload Identity Federation — no long-lived keys |
-
 ## Runners
 
-Two self-hosted runners are required. The runner image (`mlabs-runner`) and launch scripts live in [miramar-platform-gcp](https://github.com/miramar-labs-org/miramar-platform-gcp).
+One self-hosted runner is required for all three workflows. The runner image (`mlabs-runner`) and launch scripts live in [miramar-platform-gcp](https://github.com/miramar-labs-org/miramar-platform-gcp).
 
 | Runner | Label | Host | Used for |
 |---|---|---|---|
-| NVIDIA DGX Spark 128GB | `dgx` | `spark-79b7.local` (ARM64, Blackwell GPU) | GPU training and tests |
-| MSI WSL2 | `wsl2` | MSI desktop (x86_64) | Triton image build + GKE deploy |
+| NVIDIA DGX Spark 128GB | `dgx` | `spark-79b7.local` (ARM64, Blackwell GPU) | GPU training, tests, and Triton deploy |
 
-Both training and test containers mount `$HOME/.cache/huggingface` from the DGX host so the `distilbert-base-uncased` tokenizer and IMDB dataset (~200 MB) are downloaded once and reused across runs.
+The DGX runner mounts the host Docker socket — `--gpus all` works because the Docker daemon on the DGX host has GPU access. Training and test containers mount `$HOME/.cache/huggingface` from the DGX host so the `distilbert-base-uncased` tokenizer and IMDB dataset (~200 MB) are downloaded once and reused across runs.
 
 ## GitHub Secrets and Variables
 
 | Name | Scope | Type | Description |
 |---|---|---|---|
-| `WIF_PROVIDER` | org | Secret | Workload Identity Federation provider resource name |
-| `GCP_SERVICE_ACCOUNT` | repo | Secret | GCP service account email for WIF |
-| `REPO_NAME` | repo | Variable | Repository slug used as the K8s namespace |
+| `DOCKERHUB_USERNAME` | org | Secret | Docker Hub username for pushing the Triton serving image |
+| `DOCKERHUB_TOKEN` | org | Secret | Docker Hub access token |
 
 `MLFLOW_TRACKING_URI` is set via a GitHub org variable. The training container runs with `--network host` so it reaches MLflow on the DGX loopback directly.
 
 ## Triton Inference
 
-After deployment, access via port-forward:
+After deployment, access via port-forward on the DGX:
 
 ```bash
-kubectl port-forward -n mlops-torch-triton-gke-pipeline svc/triton 8000:8000
+kubectl --context minikube port-forward -n mlops-torch-triton-dgx-pipeline svc/triton 8000:8000
 
 # Health check
 curl localhost:8000/v2/health/ready
@@ -143,13 +118,26 @@ Logits: index 0 = negative, index 1 = positive. Apply softmax for probabilities.
 
 Triton also exposes gRPC on port 8001 and Prometheus metrics on port 8002.
 
+## minikube Dashboard
+
+The minikube cluster on the DGX has the dashboard enabled. To open it:
+
+```bash
+# On the DGX directly
+minikube dashboard
+
+# Or get the URL and forward via SSH
+minikube dashboard --url
+ssh -L <PORT>:localhost:<PORT> aaron@spark-79b7.local
+```
+
 ## Repository Structure
 
 ```
 .github/workflows/
   ml-train-test.yaml       # Build training image and run pytest (entry point)
   ml-train.yaml            # GPU training on DGX — exports model.onnx as artifact
-  ml-deploy.yaml           # Triton image build + GKE deploy on WSL2
+  ml-deploy.yaml           # Triton image build + Docker Hub push + minikube deploy
 ml/
   train.py              # DistilBERT fine-tune + ONNX export + MLflow logging
   test_train.py         # Unit tests for tokenize_batch, evaluate, ONNX export
@@ -159,5 +147,5 @@ ml/
   triton_config.pbtxt   # Triton model config (ONNX Runtime backend)
   output/               # Generated at runtime — model.onnx (gitignored)
 k8s/
-  triton.yaml           # Namespace + Deployment + Service for Triton on GKE
+  triton.yaml           # Namespace + Deployment + Service for Triton on minikube
 ```
