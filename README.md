@@ -9,6 +9,7 @@ GPU ML training pipeline: fine-tune DistilBERT for text classification on a DGX 
 
 ## Links
 
+- **[Docker Hub](https://hub.docker.com/repository/docker/aaroncody/triton-text-classifier/general)** — `aaroncody/triton-text-classifier`
 - **[GitHub Actions](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions)** — workflow run history
 - **[MLflow UI](http://localhost:5000)** — experiment tracking on DGX; requires SSH tunnel: `ssh -L 5000:localhost:5000 aaron@spark-79b7.local`
 - **[minikube Dashboard](http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/)** — requires SSH tunnel: `ssh -L 8001:localhost:8001 aaron@spark-79b7.local` (proxy runs on DGX: `nohup kubectl --context minikube proxy --port=8001 --address=127.0.0.1 > ~/kubectl-proxy.log 2>&1 &`)
