@@ -18,6 +18,8 @@ spec:
       labels:
         app: triton
     spec:
+      imagePullSecrets:
+        - name: dockerhub-pull-secret
       containers:
         - name: triton
           image: IMAGE_PLACEHOLDER
