@@ -11,7 +11,7 @@ GPU ML training pipeline: fine-tune DistilBERT for text classification on a DGX 
 
 - **[GitHub Actions](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions)** — workflow run history
 - **[MLflow UI](http://localhost:5000)** — experiment tracking on DGX; requires SSH tunnel: `ssh -L 5000:localhost:5000 aaron@spark-79b7.local`
-- **[minikube Dashboard](http://localhost:PORT/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/)** — get port with `minikube dashboard --url` on DGX, then `ssh -L PORT:localhost:PORT aaron@spark-79b7.local`
+- **[minikube Dashboard](http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/)** — requires SSH tunnel: `ssh -L 8001:localhost:8001 aaron@spark-79b7.local` (proxy runs on DGX: `nohup kubectl --context minikube proxy --port=8001 --address=127.0.0.1 > ~/kubectl-proxy.log 2>&1 &`)
 
 ## Local Development
 
@@ -125,15 +125,16 @@ Triton also exposes gRPC on port 8001 and Prometheus metrics on port 8002.
 
 ## minikube Dashboard
 
-The minikube cluster on the DGX has the dashboard enabled. To open it:
+The minikube cluster on the DGX has the dashboard enabled. Start the proxy on the DGX once (survives across sessions):
 
 ```bash
-# On the DGX directly
-minikube dashboard
+nohup kubectl --context minikube proxy --port=8001 --address=127.0.0.1 > ~/kubectl-proxy.log 2>&1 &
+```
 
-# Or get the URL and forward via SSH
-minikube dashboard --url
-ssh -L <PORT>:localhost:<PORT> aaron@spark-79b7.local
+Then SSH tunnel from your laptop and open the link above:
+
+```bash
+ssh -L 8001:localhost:8001 aaron@spark-79b7.local
 ```
 
 ## Repository Structure
