@@ -92,6 +92,7 @@ The DGX host runs a minikube cluster with the dashboard enabled. All `kubectl` c
 |---|---|---|---|
 | `DOCKERHUB_USERNAME` | org | Secret | Docker Hub username for pushing the Triton serving image |
 | `DOCKERHUB_TOKEN` | org | Secret | Docker Hub access token |
+| `DGX_MINIKUBE_KUBECONFIG` | org | Secret | Base64-encoded kubeconfig for the minikube cluster on the DGX (`kubectl config view --context minikube --minify --raw \| base64 -w0`) |
 
 ## Runners
 

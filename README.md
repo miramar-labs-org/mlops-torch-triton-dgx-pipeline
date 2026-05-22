@@ -90,6 +90,7 @@ The DGX runner mounts the host Docker socket — `--gpus all` works because the 
 |---|---|---|---|
 | `DOCKERHUB_USERNAME` | org | Secret | Docker Hub username for pushing the Triton serving image |
 | `DOCKERHUB_TOKEN` | org | Secret | Docker Hub access token |
+| `DGX_MINIKUBE_KUBECONFIG` | org | Secret | Base64-encoded kubeconfig for the minikube cluster on the DGX |
 
 `MLFLOW_TRACKING_URI` is set via a GitHub org variable. The training container runs with `--network host` so it reaches MLflow on the DGX loopback directly.
 

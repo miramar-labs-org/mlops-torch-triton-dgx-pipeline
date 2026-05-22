@@ -50,6 +50,12 @@ jobs:
           run-id: ${{ env.RUN_ID }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Configure kubectl for minikube
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.DGX_MINIKUBE_KUBECONFIG }}" | base64 -d > ~/.kube/config
+          docker network connect minikube "$(hostname)" || true
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
