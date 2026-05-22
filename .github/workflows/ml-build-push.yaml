@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: 'ML Train run ID to build from (find in Actions → ML Train)'
-        required: true
+        description: 'ML Train run ID to build from (leave blank to use latest successful run)'
+        required: false
 
 permissions:
   contents: read
@@ -28,7 +28,13 @@ jobs:
       - name: Resolve run ID and image tag
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            RUN_ID="${{ github.event.inputs.run_id }}"
+            if [ -n "${{ github.event.inputs.run_id }}" ]; then
+              RUN_ID="${{ github.event.inputs.run_id }}"
+            else
+              RUN_ID=$(curl -sf -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/${{ github.repository }}/actions/workflows/ml-train.yaml/runs?status=success&per_page=1" \
+                | python3 -c "import sys,json; print(json.load(sys.stdin)['workflow_runs'][0]['id'])")
+            fi
             SHA=$(curl -sf -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/${{ github.repository }}/actions/runs/${RUN_ID}" \
               | python3 -c "import sys,json; print(json.load(sys.stdin)['head_sha'])")
