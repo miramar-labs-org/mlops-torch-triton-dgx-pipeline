@@ -11,7 +11,7 @@ GPU ML training pipeline: fine-tune DistilBERT for text classification on a DGX 
 
 - **[GitHub Actions](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions)** — workflow run history
 - **[MLflow UI](http://localhost:5000)** — experiment tracking on DGX; requires SSH tunnel: `ssh -L 5000:localhost:5000 aaron@spark-79b7.local`
-- **minikube Dashboard** — `minikube dashboard` on the DGX (SSH tunnel to forward the port shown)
+- **[minikube Dashboard](http://localhost:PORT/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/)** — get port with `minikube dashboard --url` on DGX, then `ssh -L PORT:localhost:PORT aaron@spark-79b7.local`
 
 ## Local Development
 
