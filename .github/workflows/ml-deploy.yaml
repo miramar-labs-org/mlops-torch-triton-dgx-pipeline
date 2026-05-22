@@ -39,7 +39,7 @@ jobs:
       - name: Configure kubectl for minikube
         run: |
           mkdir -p ~/.kube
-          echo "${{ secrets.DGX_MINIKUBE_KUBECONFIG }}" | base64 -d > ~/.kube/config
+          echo "${{ secrets.DGX_MINIKUBE_KUBECONFIG }}" | tr -d '[:space:]' | base64 -d > ~/.kube/config
           docker network connect minikube "$(hostname)" || true
 
       - name: Deploy Triton
