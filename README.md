@@ -4,6 +4,7 @@ GPU ML training pipeline: fine-tune DistilBERT for text classification on a DGX 
 
 [![ML Train Test](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions/workflows/ml-train-test.yaml/badge.svg)](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions/workflows/ml-train-test.yaml)
 [![ML Train](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions/workflows/ml-train.yaml/badge.svg)](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions/workflows/ml-train.yaml)
+[![ML Build Push](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions/workflows/ml-build-push.yaml/badge.svg)](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions/workflows/ml-build-push.yaml)
 [![ML Deploy](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions/workflows/ml-deploy.yaml/badge.svg)](https://github.com/miramar-labs-org/mlops-torch-triton-dgx-pipeline/actions/workflows/ml-deploy.yaml)
 
 ## Links
