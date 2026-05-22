@@ -61,7 +61,7 @@ jobs:
         run: |
           kubectl --context minikube rollout status deployment/"$DEPLOYMENT_NAME" \
             -n "$K8S_NAMESPACE" \
-            --timeout=300s
+            --timeout=600s
 
       - name: Show deployed resources
         if: always()
