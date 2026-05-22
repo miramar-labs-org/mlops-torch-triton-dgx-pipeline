@@ -39,10 +39,12 @@ ML Train — triggered by ML Train Test success (dgx, ARM64, GPU)
   ├── export → model.onnx
   └── upload artifact → onnx-model
 
-ML Deploy — triggered by ML Train success (dgx, ARM64)
+ML Build Push — triggered by ML Train success (dgx, ARM64)
   ├── download artifact → model.onnx
   ├── docker build → Triton serving image (model baked in)
-  ├── push → Docker Hub (latest + SHA tag)
+  └── push → Docker Hub (latest + SHA tag)
+
+ML Deploy — triggered by ML Build Push success (dgx, ARM64)
   └── kubectl apply → minikube namespace mlops-torch-triton-dgx-pipeline
 ```
 
@@ -52,7 +54,8 @@ ML Deploy — triggered by ML Train success (dgx, ARM64)
 |---|---|---|---|
 | **ML Train Test** | `ml-train-test.yaml` | `dgx` | Push to `ml/train.py`, `test_train.py`, or `Dockerfile.train`; or manual |
 | **ML Train** | `ml-train.yaml` | `dgx` | Auto on ML Train Test success; or manual |
-| **ML Deploy** | `ml-deploy.yaml` | `dgx` | Auto on ML Train success; or manual with `run_id` |
+| **ML Build Push** | `ml-build-push.yaml` | `dgx` | Auto on ML Train success; or manual with `run_id` |
+| **ML Deploy** | `ml-deploy.yaml` | `dgx` | Auto on ML Build Push success; or manual with `image_tag` (git SHA) |
 
 ### ML Train inputs (manual dispatch only)
 
@@ -61,7 +64,7 @@ ML Deploy — triggered by ML Train success (dgx, ARM64)
 | `epochs` | `3` | Number of training epochs |
 | `experiment` | `text-classifier` | MLflow experiment name |
 
-The model artifact (`onnx-model`) passes between workflows via GitHub Actions artifact storage. The deploy workflow uses the training run's commit SHA as the image tag, so `latest` and the SHA-tagged image on Docker Hub always correspond to the same trained model.
+The model artifact (`onnx-model`) passes between workflows via GitHub Actions artifact storage. The commit SHA is used as the Docker Hub image tag throughout — `latest` and the SHA tag always correspond to the same trained model.
 
 ## Model
 
@@ -138,7 +141,8 @@ ssh -L <PORT>:localhost:<PORT> aaron@spark-79b7.local
 .github/workflows/
   ml-train-test.yaml       # Build training image and run pytest (entry point)
   ml-train.yaml            # GPU training on DGX — exports model.onnx as artifact
-  ml-deploy.yaml           # Triton image build + Docker Hub push + minikube deploy
+  ml-build-push.yaml       # Build Triton serving image and push to Docker Hub
+  ml-deploy.yaml           # Deploy to minikube from Docker Hub image
 ml/
   train.py              # DistilBERT fine-tune + ONNX export + MLflow logging
   test_train.py         # Unit tests for tokenize_batch, evaluate, ONNX export
