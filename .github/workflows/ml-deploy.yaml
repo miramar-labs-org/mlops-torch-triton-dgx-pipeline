@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: 'Docker Hub image tag to deploy (git SHA — find in Actions → ML Build Push)'
-        required: true
+        description: 'Docker Hub image tag to deploy (git SHA — leave blank to use latest successful ML Build Push)'
+        required: false
 
 permissions:
   contents: read
@@ -29,7 +29,13 @@ jobs:
       - name: Resolve image tag
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+            if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+              IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+            else
+              IMAGE_TAG=$(curl -sf -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/${{ github.repository }}/actions/workflows/ml-build-push.yaml/runs?status=success&per_page=1" \
+                | python3 -c "import sys,json; print(json.load(sys.stdin)['workflow_runs'][0]['head_sha'])")
+            fi
           else
             IMAGE_TAG="${{ github.event.workflow_run.head_sha }}"
           fi
