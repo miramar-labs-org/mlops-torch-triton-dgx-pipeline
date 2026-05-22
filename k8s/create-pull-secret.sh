@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Manual helper — the deploy workflow creates this secret automatically.
+# Use this script only to create the secret outside of CI (e.g. first-time setup).
+# GitHub org secrets are write-only and cannot be read via the API,
+# so the token must be passed via DOCKERHUB_TOKEN env var or entered at the prompt.
 set -euo pipefail
 
 NAMESPACE="mlops-torch-triton-dgx-pipeline"
